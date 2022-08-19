@@ -7,6 +7,16 @@ library(lubridate)
 df_Processos_ANM_Dados_Abertos <- 
   readRDS(file = "~/D_Lake/RFB/data/df_Processos_ANM_Dados_Abertos.RData")
                             
+options(editor = 'notepad') 
+library(tidyverse)
+library(lubridate)
+
+# Processos ANM 
+df_Processos_ANM_Dados_Abertos <- 
+  readRDS(file = "./data/df_Processos_ANM_Dados_Abertos.RData")
+
+
+
 
 # Fase de Lavra 
 
