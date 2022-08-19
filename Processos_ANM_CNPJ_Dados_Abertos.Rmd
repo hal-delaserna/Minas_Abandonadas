@@ -1,0 +1,368 @@
+---
+title: 'Processos ANM Ativos & CNPJs Baixados: Concessões de Lavra, Licenciamentos  e
+  PLG'
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(knitr)
+library(kableExtra)
+```
+
+```{r carregamento, echo=FALSE}
+# CNPJS com baixa por eventos de extinção/encerramento ----
+df_cnpj_Baixados <-
+  readRDS(file = "D:/Users/humberto.serna/Documents/D_Lake/RFB/CNPJs_Baixados.RDATA")
+
+# Processos ANM: CL, PLG e LICE ----
+df_Processos_ANM <-
+  readRDS(file = "D:/Users/humberto.serna/Documents/D_Lake/df_Processos_ANM_Dados_Abertos.RData")
+
+df_Processos_ANM <-
+  df_Processos_ANM[df_Processos_ANM$Fase.Atual %in% c("Concessão de Lavra", "Licenciamento", "Lavra Garimpeira"), ]
+
+df_Processos_ANM$CPF.CNPJ.do.titular <- 
+  gsub(pattern = "\\.", replacement = "", df_Processos_ANM$CPF.CNPJ.do.titular) %>% gsub(pattern = "\\/", replacement = "") %>% gsub(pattern = "-", replacement = "")
+
+# df_Processos_Cnpj_BAIXADOS
+df_Processos_Cnpj_BAIXADOS <- 
+  left_join(df_cnpj_Baixados[df_cnpj_Baixados$situacaoCadastral == "BAIXADA",], df_Processos_ANM, by = c("cnpj" = "CPF.CNPJ.do.titular"))
+
+# DELIMITAÇÃO POR Gerência Regional
+
+  # UF_alvo <- c("Gerência Regional / SP")
+  # 
+  # df_Processos_Cnpj_BAIXADOS <- 
+  #   df_Processos_Cnpj_BAIXADOS[df_Processos_Cnpj_BAIXADOS$Superintendência %in% UF_alvo,]
+
+
+# Carregamento: Evento dos Processos respectivos.
+
+df_Processos_Eventos_SCA <-
+  readRDS(file = "D:/Users/humberto.serna/Documents/D_Lake/Processos_Eventos_SCA.RData")
+
+colnames(df_Processos_Eventos_SCA)[1] <- c("evento")
+
+df_Processos_Eventos_SCA <- 
+  left_join(df_Processos_Cnpj_BAIXADOS, df_Processos_Eventos_SCA, by = c("Processo" = "processo"))
+
+
+a <- head(df_Processos_Eventos_SCA,0)
+for (proc in unique(df_Processos_Eventos_SCA$Processo)) {
+  
+  if (df_Processos_Eventos_SCA[df_Processos_Eventos_SCA$Processo == proc, ]$Fase.Atual[1] == "Licenciamento") {
+    
+      a <- 
+  rbind(a, 
+    head(df_Processos_Eventos_SCA[df_Processos_Eventos_SCA$Processo == proc,], 5))
+    
+  } else {
+    
+      a <- 
+  rbind(a, 
+    head(df_Processos_Eventos_SCA[df_Processos_Eventos_SCA$Processo == proc,], 15))
+  }
+  }
+
+df_Processos_Eventos_SCA <- a
+rm(a)
+
+```
+
+------------------------------------------------------------------------
+
+<br>
+
+<center>
+
+#### **`r  #UF_alvo`**
+
+</center>
+
+<br> 
+
+<table border = "0" width = "100%">
+
+<tr><td valign = top width = "45%">
+
+> Nº de processos ativos com titulares inexistentes: `r length(unique(df_Processos_Cnpj_BAIXADOS$Processo))` (`r round((length(unique(df_Processos_Cnpj_BAIXADOS$Processo))/length(df_Processos_ANM$Processo))*100, digits = 2)`%)
+
+> Total de CNPJs baixados vinculados à processos ANM ativos: `r length(unique(df_Processos_Cnpj_BAIXADOS$cnpj))` (`r round((length(unique(df_Processos_Cnpj_BAIXADOS$cnpj))/length(unique(df_Processos_ANM$CPF.CNPJ.do.titular)))*100, digits = 2)`%)
+
+> Os municípios com mais processos são `r data.frame(sort(table(df_Processos_Cnpj_BAIXADOS$Municipio.s.),decreasing = TRUE))[[1]][1]` (`r data.frame(sort(table(df_Processos_Cnpj_BAIXADOS$Municipio.s.),decreasing = TRUE))[[2]][1]`) e `r data.frame(sort(table(df_Processos_Cnpj_BAIXADOS$Municipio.s.),decreasing = TRUE))[[1]][2]` (`r data.frame(sort(table(df_Processos_Cnpj_BAIXADOS$Municipio.s.),decreasing = TRUE))[[2]][2]`)
+
+> As substâncias mais frequentes são `r data.frame(sort(table(df_Processos_Cnpj_BAIXADOS$Substância.s.),decreasing = TRUE))[[1]][1]` (`r data.frame(sort(table(df_Processos_Cnpj_BAIXADOS$Substância.s.),decreasing = TRUE))[[2]][1]`) e `r data.frame(sort(table(df_Processos_Cnpj_BAIXADOS$Substância.s.),decreasing = TRUE))[[1]][2]` (`r data.frame(sort(table(df_Processos_Cnpj_BAIXADOS$Substância.s.),decreasing = TRUE))[[2]][2]`)
+
+</td><td></td><td valign = top  width = "45%">
+
+```{r Tempo_CNPJ_Baixado, echo=FALSE}
+
+df_tempo_BAIXA_Processos <-
+  kableExtra::kable(
+    rbind(
+      data.frame(
+        x = "< 1 ano",
+        y = length(df_Processos_Cnpj_BAIXADOS[year(df_Processos_Cnpj_BAIXADOS$dataSituacao) > 2020,]$Fase)
+      ),
+      data.frame(
+        x = "> 1 ano",
+        y = length(df_Processos_Cnpj_BAIXADOS[year(df_Processos_Cnpj_BAIXADOS$dataSituacao) < 2020,]$Fase)
+      ),
+      data.frame(
+        x = "> 2 anos",
+        y = length(df_Processos_Cnpj_BAIXADOS[year(df_Processos_Cnpj_BAIXADOS$dataSituacao) < 2019,]$Fase)
+      ),
+      data.frame(
+        x = "> 5 anos",
+        y = length(df_Processos_Cnpj_BAIXADOS[year(df_Processos_Cnpj_BAIXADOS$dataSituacao) < 2016,]$Fase)
+      ),
+      data.frame(
+        x = "> 10 anos",
+        y = length(df_Processos_Cnpj_BAIXADOS[year(df_Processos_Cnpj_BAIXADOS$dataSituacao) < 2011,]$Fase)
+      ),
+      data.frame(
+        x = "> 15 anos",
+        y = length(df_Processos_Cnpj_BAIXADOS[year(df_Processos_Cnpj_BAIXADOS$dataSituacao) < 2006,]$Fase)
+      ),
+      data.frame(
+        x = "> 20 anos",
+        y = length(df_Processos_Cnpj_BAIXADOS[year(df_Processos_Cnpj_BAIXADOS$dataSituacao) < 2001,]$Fase)
+      ),
+      data.frame(
+        x = "> 30 anos",
+        y = length(df_Processos_Cnpj_BAIXADOS[year(df_Processos_Cnpj_BAIXADOS$dataSituacao) < 1991,]$Fase)
+      )
+    ),
+    col.names = c("CNPJ Baixado", "Nº Processos"), align = "c",
+    caption = "**Evento de Baixa do CNPJ por tempo decorrido**"
+  ) %>% 
+  kable_styling(bootstrap_options = "striped", full_width = F) %>% 
+  footnote(c("Fonte: Receita Federal e ANM. Humberto Serna - SupReg/EcoMin"))
+
+
+df_tempo_BAIXA_Processos
+
+```
+
+</td></tr></table>
+
+
+
+<br> <br> <br>
+
+<table border = "0" width = "100%">
+
+<tr><td colspan = 3 align = center>
+
+### **Processos cujos titulares estão com o CNPJ baixado na Receita Federal** 
+
+</td></tr>
+
+<tr><td>
+
+```{r Qtd_Processos_CNPJs, echo=FALSE} 
+ 
+df_titulos_GroupBY <-
+  arrange(data.frame(table(df_Processos_Cnpj_BAIXADOS$Fase.Atual)), desc(Freq))
+
+kableExtra::kable(
+    df_titulos_GroupBY,
+  #  caption = "**Processos cujos titulares estão com o CNPJ baixado na Receita Federal**",
+    col.names = c("Título", "Quantidade")
+  ) %>% footnote(c("Receita Federal e ANM. Humberto Serna - SupReg/EcoMin")) %>% kable_styling(bootstrap_options = "striped", full_width = FALSE)
+
+```  
+
+</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td>
+
+```{r Gph_Processos_CNPJs, echo=FALSE, fig.height=2.5, fig.width=4}
+
+df_titulos_GroupBY$Var1 <- factor(df_titulos_GroupBY$Var1, levels = df_titulos_GroupBY$Var1[order(df_titulos_GroupBY$Freq, decreasing = TRUE)])
+
+ggplot(df_titulos_GroupBY, mapping = aes(x = Var1, y=Freq)) +
+  geom_col(fill = c("navy"))
+
+``` 
+
+</td></tr></table> <br> <br> <br>
+
+<table border = "0" width = "100%">
+<tr><td align = center> 
+
+###  **Processos com CNPJs baixados e Motivos respectivos**
+
+</td></tr>
+<tr><td>
+
+```{r Processo_CNPJ_Motivos , echo=FALSE}
+
+kableExtra::kable(
+  arrange(data.frame(
+    table(df_Processos_Cnpj_BAIXADOS$Descrição)
+  ), desc(Freq)),
+  # caption = "**Processos com CNPJs baixados e Motivos respectivos**",
+  col.names = c("Motivos", "Quantidade")) %>% footnote(c("Fonte: Receita Federal e ANM. Humberto Serna - SupReg/EcoMin")
+) %>% kable_styling("striped", full_width = F)
+
+```
+
+</td></tr></table> <br><br><br>
+
+<table border = "0" width = "100%">
+<tr><td colspan = 3 align = center> 
+
+###  **Processos com CNPJ baixado por UF**
+
+</td></tr>
+<tr><td valign = top align = left>
+
+```{r  Processo_CNPJ_UF, echo=FALSE}
+
+df_UF_GroupBY <- 
+  arrange(data.frame(
+    table(df_Processos_Cnpj_BAIXADOS$UF)
+  ), desc(Freq))
+
+kable(df_UF_GroupBY,
+  col.names = c("GERÊNCIA REGIONAL", "Qtd Processos"),
+  align = "c" ) %>% 
+  footnote(c("Receita Federal e ANM. Humberto Serna - SupReg/EcoMin")) %>%
+  kable_styling("striped", full_width = F)
+    
+```
+
+</td>&nbsp;&nbsp;<td valign=top align = right>
+
+```{r Processo_CNPJ_UF_Graph, echo=FALSE, fig.height=10, fig.width=5}
+
+df_UF_GroupBY$Var1 <- factor(df_UF_GroupBY$Var1, levels = df_UF_GroupBY$Var1[order(df_UF_GroupBY$Freq)])
+
+ggplot(df_UF_GroupBY, mapping = aes(x = Freq, y=Var1)) +
+  geom_col()
+
+```
+
+</td></tr></table> <br><br><br>
+
+```{r Qtd_Substância , echo=FALSE, message=FALSE}
+
+kable(
+    arrange(
+      filter(
+  spread(
+   group_by(df_Processos_Cnpj_BAIXADOS, Fase.Atual, Substância.s.) %>% summarise(n()), key = `Fase.Atual`, value = `n()`, fill = 0),
+  `Concessão de Lavra` > 2),
+  desc(`Concessão de Lavra`)),
+  align = c("l", "c", "c", "c"),
+  caption = "Principais Ocorrências"
+) %>%
+  column_spec(1, width = "5cm") %>%
+  footnote(c("Fonte: Receita Federal e ANM. Humberto Serna - SupReg/EcoMin")) %>%
+  kable_styling("striped", full_width = F)
+
+```
+
+
+
+```{r Processos por Evento, echo=FALSE}
+
+FECHAMENTO_DE_MINA <- 
+  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "FECHAMENTO DE MINA",), ]$Processo)
+  
+Suspensão <- 
+  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "SUSPEN",) & grepl(df_Processos_Eventos_SCA$evento, pattern = "SUSPENSÃO TRABALHOS LAVRA NEGADA") == FALSE, ]$Processo)
+
+Nulidade <- 
+  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "NULIDADE",), ]$Processo)
+
+Caducidade <- 
+  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "CADUC",) & grepl(df_Processos_Eventos_SCA$evento, pattern = "S/EFEITO") == FALSE, ]$Processo)
+
+Disponibilidade <- 
+  unique(df_Processos_Eventos_SCA[!grepl(df_Processos_Eventos_SCA$evento, pattern = "EFEITO|DOCUMENTO DIVERSO|NÃO DISPON") & grepl(df_Processos_Eventos_SCA$evento, pattern = "DISPONIBILIDADE|DISPON"), ]$Processo)
+
+Renuncia <- 
+  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "RENÚNCIA",), ]$Processo) 
+
+```
+
+
+
+<table border = 0>
+<b><TR bgcolor = "Silver"><TD align = center><b>EVENTOS</TD><TD align = center><b>QTD PROCESSOS</TD><TD align = center><b>PROCESSOS</TD></TR>
+<tr><td  width = 50% valign = top>
+    `r  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "FECHAMENTO DE MINA",), ]$evento)`
+
+</td><td valign = top align = center>
+    `r  FECHAMENTO_DE_MINA %>% length()`
+  
+</td><td style="font-size:11px;">
+    `r  FECHAMENTO_DE_MINA`
+    </td></tr>
+
+
+<tr bgcolor = "Silver">><td  width = 50% valign = top>
+    `r  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "SUSPEN",) & grepl(df_Processos_Eventos_SCA$evento, pattern = "SUSPENSÃO TRABALHOS LAVRA NEGADA") == FALSE, ]$evento)`
+
+</td><td valign = top align = center>
+    `r  Suspensão %>% length()`
+  
+</td><td style="font-size:11px;">
+    `r  Suspensão`
+    </td></tr>
+
+
+<tr><td  width = 50% valign = top>
+    `r  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "NULIDADE",), ]$evento)`
+
+</td><td valign = top align = center>
+    `r  Nulidade %>% length()`
+  
+</td><td style="font-size:11px;">
+    `r  Nulidade`
+    </td></tr>
+
+
+<tr bgcolor = "Silver">><td  width = 50% valign = top>
+    `r  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "CADUC") & grepl(df_Processos_Eventos_SCA$evento, pattern = "S/EFEITO") == FALSE, ]$evento)`
+    
+</td><td valign = top align = center>
+    `r  Caducidade %>% length()`
+  
+</td><td style="font-size:11px;">
+    `r  Caducidade`
+</td>
+</tr>
+
+<tr><td  width = 50% valign = top>
+    `r  unique(df_Processos_Eventos_SCA[!grepl(df_Processos_Eventos_SCA$evento, pattern = "EFEITO|DOCUMENTO DIVERSO|NÃO DISPON") & grepl(df_Processos_Eventos_SCA$evento, pattern = "DISPONIBILIDADE|DISPON"), ]$evento)`
+
+</td><td valign = top align = center>
+    `r  Disponibilidade %>% length()`
+  
+</td><td style="font-size:11px;">
+    `r  Disponibilidade`
+</td></tr>
+
+  <tr bgcolor = "Silver"><td  width = 50% valign = top>
+  `r  unique(df_Processos_Eventos_SCA[grepl(df_Processos_Eventos_SCA$evento, pattern = "RENÚNCIA",), ]$evento)`
+
+</td><td valign = top align = center>
+    `r  Renuncia %>% length()`
+</td><td style="font-size:11px;">
+    `r  Renuncia` 
+    <td/>
+</tr>
+</table>
+
+<br><br><br><br><br><br>
+
+------------------------------------------------------------------------
