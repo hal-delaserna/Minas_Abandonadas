@@ -1,7 +1,5 @@
 # Minas_Abandonadas
 
-Aqui está a redação corrigida e mais clara, mantendo o rigor técnico mas com melhor fluidez:
-
 ---
 
 Este exercício busca identificar, por dados abertos, minas abandonadas por seus titulares. Usualmente, é uma apuração é feita por meio de visitas *in loco*, o que nem sempre é possível ou desejável (consumo de recursos e custo de oportunidade). Além disso, nem sempre a inspeção presencial é taxativa: a distinção entre uma longa paralisação e um verdadeiro abandono pode não ser óbvia.
